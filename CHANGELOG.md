@@ -2,6 +2,11 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.4.0 — 2026-11-21
+
+- Increase streamer name and title font sizes by two, add bold styling, and center badge text.
+- Add card, text, and combined notification modes for both stream starts and ends.
+
 ## 1.3.3 — 2026-11-20
 
 - Use the logger provided by `astrbot.api` to meet the plugin marketplace requirements.

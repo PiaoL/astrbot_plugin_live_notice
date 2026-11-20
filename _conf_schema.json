@@ -5,6 +5,14 @@
     "description": "直播状态轮询间隔（秒）",
     "hint": "范围 30 到 1800 秒。YouTube 为节省 API 配额，会额外缓存 5 分钟。"
   },
+  "notice_mode": {
+    "type": "string",
+    "default": "both",
+    "description": "播报类型",
+    "hint": "同时应用于开播和关播提醒。只发图卡时，如果图卡生成失败，会发送文字提醒。",
+    "options": ["card", "text", "both"],
+    "labels": ["图卡", "文字版", "文字+图卡"]
+  },
   "twitch_client_id": {
     "type": "string",
     "default": "",

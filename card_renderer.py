@@ -38,13 +38,48 @@ def _open(payload: bytes | None) -> Image.Image | None:
         return None
 
 
-def _fit_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, width: int) -> str:
+def _fit_text(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, width: int, stroke_width: int = 0
+) -> str:
     text = str(text or "")
-    if draw.textbbox((0, 0), text, font=font)[2] <= width:
+    left, _, right, _ = draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
+    if right - left <= width:
         return text
-    while text and draw.textbbox((0, 0), text + "…", font=font)[2] > width:
+    while text:
         text = text[:-1]
+        left, _, right, _ = draw.textbbox((0, 0), text + "…", font=font, stroke_width=stroke_width)
+        if right - left <= width:
+            break
     return text + "…"
+
+
+def _draw_heading(
+    draw: ImageDraw.ImageDraw,
+    position: tuple[int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    width: int,
+    color: str,
+) -> None:
+    stroke_width = 1
+    fitted = _fit_text(draw, text, font, width, stroke_width=stroke_width)
+    draw.text(position, fitted, font=font, fill=color, stroke_width=stroke_width)
+
+
+def _draw_pill(
+    draw: ImageDraw.ImageDraw,
+    bounds: tuple[int, int, int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    background: str,
+    color: str = "#ffffff",
+) -> None:
+    left, top, right, bottom = bounds
+    ink_left, ink_top, ink_right, ink_bottom = draw.textbbox((0, 0), text, font=font)
+    x = (left + right - ink_left - ink_right) // 2
+    y = (top + bottom - ink_top - ink_bottom) // 2
+    draw.rounded_rectangle(bounds, radius=(bottom - top) // 2, fill=background)
+    draw.text((x, y), text, font=font, fill=color)
 
 
 def _avatar_layer(avatar: Image.Image | None, size: int) -> Image.Image:
@@ -116,12 +151,12 @@ def render_notice_card(
 def _render_live(info: dict, avatar: Image.Image | None, cover: Image.Image, output_path: str, font_path: str | None) -> None:
     canvas = Image.new("RGB", (WIDTH, 1160), "#e9edf1")
     draw = ImageDraw.Draw(canvas)
-    title_font, name_font, small_font = _font(42, font_path), _font(34, font_path), _font(25, font_path)
-    draw.text((58, 48), _fit_text(draw, info.get("title", "直播中"), title_font, 850), font=title_font, fill="#252a33")
+    title_font, name_font, small_font = _font(44, font_path), _font(36, font_path), _font(25, font_path)
+    _draw_heading(draw, (58, 48), info.get("title", "直播中"), title_font, 850, "#252a33")
     avatar_layer = _avatar_layer(avatar, 150)
     canvas.paste(avatar_layer, (58, 132), avatar_layer)
     draw = ImageDraw.Draw(canvas)
-    draw.text((235, 157), _fit_text(draw, info.get("name", "主播"), name_font, 710), font=name_font, fill="#303641")
+    _draw_heading(draw, (235, 157), info.get("name", "主播"), name_font, 675, "#303641")
     category = str(info.get("category") or "直播")
     draw.text((235, 211), _fit_text(draw, category, small_font, 710), font=small_font, fill="#b76a4f")
     qr_img = _qr(str(info.get("url", "")), 210)
@@ -132,9 +167,8 @@ def _render_live(info: dict, avatar: Image.Image | None, cover: Image.Image, out
     label = "● 正在直播"
     label_font = _font(28, font_path)
     box = draw.textbbox((0, 0), label, font=label_font)
-    label_w = box[2] + 46
-    draw.rounded_rectangle((WIDTH - label_w - 72, 395, WIDTH - 72, 458), radius=30, fill=(33, 44, 59, 220))
-    draw.text((WIDTH - label_w - 50, 408), label, font=label_font, fill="#ffffff")
+    label_w = box[2] - box[0] + 46
+    _draw_pill(draw, (WIDTH - label_w - 72, 395, WIDTH - 72, 458), label, label_font, "#212c3b")
     description_font = _font(25, font_path)
     lines = _description_lines(draw, info.get("description", ""), description_font, WIDTH - 120)
     if lines:
@@ -156,19 +190,19 @@ def _render_end(info: dict, avatar: Image.Image | None, cover: Image.Image, outp
     avatar_layer = _avatar_layer(avatar, 120)
     canvas.paste(avatar_layer, (92, 90), avatar_layer)
     draw = ImageDraw.Draw(canvas)
-    name_font, title_font, badge_font, small_font = _font(43, font_path), _font(39, font_path), _font(25, font_path), _font(24, font_path)
-    draw.text((238, 116), _fit_text(draw, info.get("name", "主播"), name_font, 640), font=name_font, fill="#f4f3ff")
-    draw.rounded_rectangle((875, 105, 1090, 172), radius=32, fill="#4a4964")
-    draw.text((905, 122), "直播已结束", font=badge_font, fill="#f3f2ff")
-    draw.text((92, 245), _fit_text(draw, info.get("title", "直播回顾"), title_font, 1010), font=title_font, fill="#ffffff")
+    name_font, title_font = _font(45, font_path), _font(41, font_path)
+    badge_font, small_font = _font(25, font_path), _font(24, font_path)
+    _draw_heading(draw, (238, 116), info.get("name", "主播"), name_font, 615, "#f4f3ff")
+    _draw_pill(draw, (875, 105, 1090, 172), "直播已结束", badge_font, "#4a4964", "#f3f2ff")
+    _draw_heading(draw, (92, 245), info.get("title", "直播回顾"), title_font, 1010, "#ffffff")
     frame = _rounded_cover(cover, (1056, 710), 28)
     canvas.paste(frame, (72, 384), frame)
     duration = int(info.get("duration") or 0)
     duration_text = f"直播时长：{duration // 3600} 小时 {(duration % 3600) // 60} 分钟" if duration else "本场直播已结束"
     box = draw.textbbox((0, 0), duration_text, font=small_font)
-    badge_w = min(550, box[2] + 44)
-    draw.rounded_rectangle((WIDTH - badge_w - 96, 1014, WIDTH - 96, 1074), radius=26, fill=(38, 39, 54, 220))
-    draw.text((WIDTH - badge_w - 74, 1030), _fit_text(draw, duration_text, small_font, badge_w - 42), font=small_font, fill="#ffffff")
+    badge_w = min(550, box[2] - box[0] + 44)
+    badge_text = _fit_text(draw, duration_text, small_font, badge_w - 44)
+    _draw_pill(draw, (WIDTH - badge_w - 96, 1014, WIDTH - 96, 1074), badge_text, small_font, "#262736")
     lines = _description_lines(draw, info.get("description", ""), small_font, WIDTH - 144)
     if lines:
         height = max(1260, 1122 + len(lines) * 36 + 42)

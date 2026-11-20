@@ -62,7 +62,7 @@ FONT_RETRY_SECONDS = 900
     "astrbot_plugin_live_notice",
     "PiaoL",
     "统一订阅多个直播平台的开播提醒。",
-    "1.3.3",
+    "1.4.0",
 )
 class LiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig) -> None:
@@ -92,7 +92,8 @@ class LiveNoticePlugin(Star):
         )
         interval = self._check_interval()
         self._task = asyncio.create_task(self._monitor_loop(interval))
-        self._ensure_default_font(self._config_value("font_path"))
+        if self._config_value("notice_mode") != "text":
+            self._ensure_default_font(self._config_value("font_path"))
 
     async def terminate(self) -> None:
         tasks = (self._task, self._font_task)
@@ -457,11 +458,14 @@ class LiveNoticePlugin(Star):
             )
         else:
             text = f"⚫ {subject} 已结束直播"
-        card_path = await self._make_card(event_type, platform, identifier, info)
-        chain_parts = [Plain(text)]
+        mode = self._config_value("notice_mode")
+        card_path = None
+        if mode != "text":
+            card_path = await self._make_card(event_type, platform, identifier, info)
+        chain_parts = [] if mode == "card" and card_path else [Plain(text)]
         if card_path:
             chain_parts.append(Image.fromFileSystem(str(card_path)))
-        elif info.get("cover"):
+        elif mode not in {"text", "card"} and info.get("cover"):
             chain_parts.append(Image.fromURL(info["cover"]))
         chain = MessageChain(chain=chain_parts)
         try:
