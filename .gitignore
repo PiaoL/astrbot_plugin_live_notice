@@ -1,0 +1,20 @@
+# Python bytecode and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local secrets and runtime state
+.env
+.env.*
+!.env.example
+data/
+subscriptions.json
+
+# Build output and OS/editor files
+dist/
+build/
+*.egg-info/
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,45 @@
+{
+  "check_interval": {
+    "type": "int",
+    "default": 60,
+    "description": "直播状态轮询间隔（秒）",
+    "hint": "范围 30 到 1800 秒。YouTube 为节省 API 配额，会额外缓存 5 分钟。"
+  },
+  "twitch_client_id": {
+    "type": "string",
+    "default": "",
+    "description": "Twitch Client ID",
+    "secret": true
+  },
+  "twitch_client_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Twitch Client Secret",
+    "secret": true
+  },
+  "kick_client_id": {
+    "type": "string",
+    "default": "",
+    "description": "Kick Client ID",
+    "secret": true
+  },
+  "kick_client_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Kick Client Secret",
+    "secret": true
+  },
+  "youtube_api_key": {
+    "type": "string",
+    "default": "",
+    "description": "YouTube Data API Key",
+    "hint": "YouTube 查询使用 Data API 搜索接口，会消耗 Google Cloud 项目配额。",
+    "secret": true
+  },
+  "font_path": {
+    "type": "string",
+    "default": "",
+    "description": "中文字体文件路径",
+    "hint": "可留空自动查找；Ubuntu/Docker 建议安装 fonts-noto-cjk 并填写 /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc。"
+  }
+}
