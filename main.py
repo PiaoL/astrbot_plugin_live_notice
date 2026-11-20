@@ -56,7 +56,7 @@ TWITCH_CACHE_SECONDS = 30
     "astrbot_plugin_live_notice",
     "PiaoL",
     "统一订阅多个直播平台的开播提醒。",
-    "1.3.0",
+    "1.3.1",
 )
 class LiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig) -> None:

@@ -8,6 +8,7 @@ import qrcode
 
 WIDTH = 1200
 FONT_CANDIDATES = (
+    str(Path(__file__).parent / "fonts" / "LXGWWenKaiScreen.ttf"),
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",

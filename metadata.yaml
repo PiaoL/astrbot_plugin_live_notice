@@ -1,7 +1,7 @@
 name: astrbot_plugin_live_notice
 display_name: 多平台开播提醒
 desc: 统一订阅哔哩哔哩、虎牙、斗鱼、Twitch、Kick 和 YouTube 开播提醒。
-version: 1.3.0
+version: 1.3.1
 author: PiaoL
 repo: https://github.com/PiaoL/astrbot_plugin_live_notice
 social_link: https://github.com/PiaoL
