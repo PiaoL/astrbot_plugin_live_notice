@@ -1,0 +1,60 @@
+name: Publish plugin release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plugin-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and publish latest version tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="$(git tag --sort=-version:refname | head -n 1)"
+          if [[ -z "$tag" ]]; then
+            echo "No version tag found; skipping release."
+            exit 0
+          fi
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; skipping."
+            exit 0
+          fi
+
+          package_root="$RUNNER_TEMP/plugin-package"
+          mkdir -p "$package_root"
+          git archive --format=tar --prefix=astrbot_plugin_live_notice/ "$tag" \
+            | tar --exclude='astrbot_plugin_live_notice/.gitignore' -xf - -C "$package_root"
+
+          archive="$GITHUB_WORKSPACE/astrbot_plugin_live_notice-${tag}.zip"
+          (cd "$package_root" && zip -q -r "$archive" astrbot_plugin_live_notice)
+          archive_size="$(stat -c '%s' "$archive")"
+          if (( archive_size > 16777216 )); then
+            echo "Plugin archive exceeds AstrBot's 16 MB marketplace limit."
+            exit 1
+          fi
+
+          gh release create "$tag" "$archive" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$tag" \
+            --generate-notes
