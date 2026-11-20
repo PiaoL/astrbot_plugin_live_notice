@@ -2,6 +2,10 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.3 — 2026-11-20
+
+- Use the logger provided by `astrbot.api` to meet the plugin marketplace requirements.
+
 ## 1.3.2 — 2026-11-20
 
 - Download and cache LXGW WenKai Screen in the background instead of shipping the font in the plugin archive. Cards use an available system font while the download is pending or unavailable.

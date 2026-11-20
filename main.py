@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import re
 import tempfile
 import time
@@ -15,6 +14,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from astrbot.api import AstrBotConfig
+from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Image, Plain
 from astrbot.api.star import Context, Star, register
@@ -22,7 +22,6 @@ from astrbot.api.star import Context, Star, register
 from .card_renderer import FONT_CACHE_PATH, render_notice_card
 
 
-logger = logging.getLogger("astrbot")
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130 Safari/537.36"
 BILIBILI_API = "https://api.live.bilibili.com/room/v1/Room/get_info"
 BILIBILI_ROOM_BY_UID_API = "https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld"
@@ -63,7 +62,7 @@ FONT_RETRY_SECONDS = 900
     "astrbot_plugin_live_notice",
     "PiaoL",
     "统一订阅多个直播平台的开播提醒。",
-    "1.3.2",
+    "1.3.3",
 )
 class LiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig) -> None:
@@ -150,7 +149,7 @@ class LiveNoticePlugin(Star):
             logger.info("开播提醒已缓存霞鹜文楷屏幕版。")
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
             self._font_retry_at = time.monotonic() + FONT_RETRY_SECONDS
-            logger.warning("开播提醒下载默认图卡字体失败，将尝试使用系统字体：%s", exc)
+            logger.warning("开播提醒下载默认图卡字体失败，将尝试使用系统字体：{}", exc)
         finally:
             if partial_path is not None:
                 with suppress(OSError):
@@ -197,7 +196,7 @@ class LiveNoticePlugin(Star):
                         yield event.plain_result("暂时无法确认这个 B 站数字对应的房间号或 UID，未添加订阅。请稍后重试，或明确加上“房间号”/“UID”。")
                         return
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, KeyError) as exc:
-                logger.info("检查 B 站房间号/UID 冲突失败：%s (%s)", target, type(exc).__name__)
+                logger.info("检查 B 站房间号/UID 冲突失败：{} ({})", target, type(exc).__name__)
                 yield event.plain_result("暂时无法同时核对 B 站房间号和 UID，未添加订阅以免选错。请稍后重试，或明确加上“房间号”/“UID”。")
                 return
         else:
@@ -247,7 +246,7 @@ class LiveNoticePlugin(Star):
             else:
                 status = "已添加，首次查询未返回资料；后台会继续检查。"
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError) as exc:
-            logger.info("首次查询直播间失败：%s %s (%s)", normalized, target, type(exc).__name__)
+            logger.info("首次查询直播间失败：{} {} ({})", normalized, target, type(exc).__name__)
             status = "已添加，但首次查询失败；请检查平台凭据和网络，后台会继续检查。"
         async with self._lock:
             current = self._subscriptions.get(session_id, {}).get(key, {})
@@ -405,7 +404,7 @@ class LiveNoticePlugin(Star):
                 async with semaphore:
                     info = await self._fetch_live(platform, identifier, old.get("identifier_kind"))
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, KeyError) as exc:
-                logger.debug("直播状态查询失败：%s %s (%s)", platform, identifier, type(exc).__name__)
+                logger.debug("直播状态查询失败：{} {} ({})", platform, identifier, type(exc).__name__)
                 return
             if not info:
                 return
@@ -468,7 +467,7 @@ class LiveNoticePlugin(Star):
         try:
             await self.context.send_message(session_id, chain)
         except Exception:
-            logger.exception("发送直播状态提醒失败：type=%s platform=%s identifier=%s", event_type, platform, identifier)
+            logger.exception("发送直播状态提醒失败：type={} platform={} identifier={}", event_type, platform, identifier)
 
     async def _make_card(
         self, event_type: str, platform: str, identifier: str, info: dict[str, Any]
@@ -662,7 +661,7 @@ class LiveNoticePlugin(Star):
                 name = name or profile_name
                 avatar = avatar or profile_avatar
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, KeyError):
-                logger.debug("B站主播头像补查失败：uid=%s", uid)
+                logger.debug("B站主播头像补查失败：uid={}", uid)
         return self._info(
             live, name or f"B站房间 {identifier}", data.get("title") or "哔哩哔哩直播",
             f"https://live.bilibili.com/{data.get('room_id') or uid_room.get('roomid') or identifier}",
@@ -828,7 +827,7 @@ class LiveNoticePlugin(Star):
                 if isinstance(live_rows, list) and live_rows:
                     info["avatar"] = self._avatar_url(live_rows[0])
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, KeyError):
-                logger.debug("Kick 直播头像补查失败：%s", slug)
+                logger.debug("Kick 直播头像补查失败：{}", slug)
         return info
 
     async def _get_youtube(self, channel_id: str) -> dict[str, Any] | None:
