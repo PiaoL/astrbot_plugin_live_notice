@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
+import tempfile
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -16,7 +19,7 @@ from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import Image, Plain
 from astrbot.api.star import Context, Star, register
 
-from .card_renderer import render_notice_card
+from .card_renderer import FONT_CACHE_PATH, render_notice_card
 
 
 logger = logging.getLogger("astrbot")
@@ -50,13 +53,17 @@ PLATFORM_LABELS = {
 MAX_SUBSCRIPTIONS_PER_SESSION = 50
 YOUTUBE_CACHE_SECONDS = 300
 TWITCH_CACHE_SECONDS = 30
+FONT_URL = "https://github.com/lxgw/LxgwWenKai-Screen/releases/download/v1.530/LXGWWenKaiScreen.ttf"
+FONT_SIZE = 26_095_590
+FONT_SHA256 = "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61"
+FONT_RETRY_SECONDS = 900
 
 
 @register(
     "astrbot_plugin_live_notice",
     "PiaoL",
     "统一订阅多个直播平台的开播提醒。",
-    "1.3.1",
+    "1.3.2",
 )
 class LiveNoticePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig) -> None:
@@ -65,6 +72,8 @@ class LiveNoticePlugin(Star):
         self.config = config
         self.session: aiohttp.ClientSession | None = None
         self._task: asyncio.Task | None = None
+        self._font_task: asyncio.Task | None = None
+        self._font_retry_at = 0.0
         self._lock = asyncio.Lock()
         self._data_path = Path("data/plugin_data/astrbot_plugin_live_notice/subscriptions.json")
         self._subscriptions: dict[str, dict[str, dict[str, Any]]] = {}
@@ -84,16 +93,68 @@ class LiveNoticePlugin(Star):
         )
         interval = self._check_interval()
         self._task = asyncio.create_task(self._monitor_loop(interval))
+        self._ensure_default_font(self._config_value("font_path"))
 
     async def terminate(self) -> None:
-        if self._task:
-            self._task.cancel()
+        tasks = (self._task, self._font_task)
+        for task in tasks:
+            if task:
+                task.cancel()
+        for task in tasks:
+            if not task:
+                continue
             try:
-                await self._task
+                await task
             except asyncio.CancelledError:
                 pass
         if self.session and not self.session.closed:
             await self.session.close()
+
+    def _ensure_default_font(self, configured: str) -> None:
+        if self._font_task and not self._font_task.done():
+            return
+        if time.monotonic() < self._font_retry_at:
+            return
+        with suppress(OSError):
+            if configured and Path(configured).is_file():
+                return
+        with suppress(OSError):
+            if FONT_CACHE_PATH.stat().st_size == FONT_SIZE:
+                return
+        if not self.session or self.session.closed:
+            return
+        self._font_task = asyncio.create_task(self._download_default_font(self.session))
+
+    async def _download_default_font(self, session: aiohttp.ClientSession) -> None:
+        partial_path: Path | None = None
+        try:
+            FONT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            timeout = aiohttp.ClientTimeout(total=90, connect=10, sock_read=20)
+            digest = hashlib.sha256()
+            size = 0
+            async with session.get(FONT_URL, timeout=timeout) as response:
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(
+                    dir=FONT_CACHE_PATH.parent, suffix=".tmp", delete=False
+                ) as partial:
+                    partial_path = Path(partial.name)
+                    async for chunk in response.content.iter_chunked(128 * 1024):
+                        size += len(chunk)
+                        if size > FONT_SIZE:
+                            raise ValueError("字体文件超出预期大小")
+                        digest.update(chunk)
+                        partial.write(chunk)
+            if size != FONT_SIZE or digest.hexdigest() != FONT_SHA256:
+                raise ValueError("字体文件校验失败")
+            partial_path.replace(FONT_CACHE_PATH)
+            logger.info("开播提醒已缓存霞鹜文楷屏幕版。")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
+            self._font_retry_at = time.monotonic() + FONT_RETRY_SECONDS
+            logger.warning("开播提醒下载默认图卡字体失败，将尝试使用系统字体：%s", exc)
+        finally:
+            if partial_path is not None:
+                with suppress(OSError):
+                    partial_path.unlink(missing_ok=True)
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("开播订阅")
@@ -419,6 +480,7 @@ class LiveNoticePlugin(Star):
             cover_bytes = await self._download_image(info.get("cover", ""), platform)
             if not cover_bytes:
                 return None
+            self._ensure_default_font(font_path)
             card_dir.mkdir(parents=True, exist_ok=True)
             output_path = card_dir / f"{event_type}-{platform}-{identifier}-{time.time_ns()}.jpg"
             await asyncio.to_thread(

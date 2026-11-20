@@ -7,8 +7,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import qrcode
 
 WIDTH = 1200
+FONT_CACHE_PATH = Path("data/plugin_data/astrbot_plugin_live_notice/fonts/LXGWWenKaiScreen-v1.530.ttf")
 FONT_CANDIDATES = (
-    str(Path(__file__).parent / "fonts" / "LXGWWenKaiScreen.ttf"),
+    str(FONT_CACHE_PATH),
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
@@ -20,8 +21,11 @@ FONT_CANDIDATES = (
 def _font(size: int, configured: str | None = None) -> ImageFont.FreeTypeFont:
     choices = ([configured] if configured else []) + list(FONT_CANDIDATES)
     for path in choices:
-        if path and Path(path).is_file():
-            return ImageFont.truetype(path, size=size)
+        try:
+            if Path(path).is_file():
+                return ImageFont.truetype(path, size=size)
+        except OSError:
+            continue
     raise FileNotFoundError("No CJK font found")
 
 

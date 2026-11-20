@@ -40,6 +40,6 @@
     "type": "string",
     "default": "",
     "description": "中文字体文件路径",
-    "hint": "可留空自动查找；Ubuntu/Docker 建议安装 fonts-noto-cjk 并填写 /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc。"
+    "hint": "留空时后台下载并缓存霞鹜文楷屏幕版，下载前使用可用的系统中文字体。也可填写容器内的字体文件路径。"
   }
 }

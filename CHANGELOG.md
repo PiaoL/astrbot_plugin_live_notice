@@ -2,6 +2,10 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.2 — 2026-11-20
+
+- Download and cache LXGW WenKai Screen in the background instead of shipping the font in the plugin archive. Cards use an available system font while the download is pending or unavailable.
+
 ## 1.3.1 — 2026-11-20
 
 - Correct the README heading for the change log.
